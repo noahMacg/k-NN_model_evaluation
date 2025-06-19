@@ -1,0 +1,11 @@
+# =====================================================
+ Model Evaluation of a k-NN Classification Model
+Noah MacGillivray | BIT-446 Assignment(T5) | Summer 2025  
+**Environment:** Ubuntu, VS Code
+# =====================================================
+
+## Imports 
+library(readxl)
+
+# Import only the first 300 rows
+data <- read_excel("path/to/your/file.xlsx", n_max = 300)
