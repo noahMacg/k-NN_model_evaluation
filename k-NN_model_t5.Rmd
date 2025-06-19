@@ -5,7 +5,23 @@ Noah MacGillivray | BIT-446 Assignment(T5) | Summer 2025
 # =====================================================
 
 ## Imports 
+```{r}
 library(readxl)
+library(skimr)
+```
 
-# Import only the first 300 rows
-data <- read_excel("path/to/your/file.xlsx", n_max = 300)
+## Import the first 300 rows and print dataset summary
+```{r}
+failure_rate <- read_excel("BIT-446-RS-T4-T5-FailureRate.xlsx", n_max = 300)
+
+# Print head
+head(failure_rate)
+
+# Print tail
+tail(failure_rate)
+
+# Print skimr dataset summary
+skim(failure_rate)
+```
+
+## General impressions from summary 
