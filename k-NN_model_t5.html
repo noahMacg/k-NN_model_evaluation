@@ -365,10 +365,19 @@ pre code {
 <div id="imports" class="section level2">
 <h2>Imports</h2>
 <pre class="r"><code>library(readxl)
-library(skimr)</code></pre>
+library(skimr)
+library(dplyr)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;dplyr&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     filter, lag</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     intersect, setdiff, setequal, union</code></pre>
 </div>
-<div id="import-the-first-300-rows-and-print-dataset-info" class="section level2">
-<h2>Import the first 300 rows and print dataset info</h2>
+<div id="import-the-first-300-rows-and-print-dataset-summary" class="section level2">
+<h2>Import the first 300 rows and print dataset summary</h2>
 <pre class="r"><code>failure_rate &lt;- read_excel(&quot;BIT-446-RS-T4-T5-FailureRate.xlsx&quot;, n_max = 300)
 
 # Print head
@@ -517,6 +526,25 @@ skim(failure_rate)</code></pre>
 </tr>
 </tbody>
 </table>
+<pre class="r"><code># Add this exploratory analysis before your main KNN model
+model_summary &lt;- failure_rate %&gt;%
+  group_by(model_version) %&gt;%
+  summarise(
+    total_units = n(),
+    failure_rate = mean(failure),
+    .groups = &#39;drop&#39;
+  )
+
+print(model_summary)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   model_version total_units failure_rate
+##           &lt;dbl&gt;       &lt;int&gt;        &lt;dbl&gt;
+## 1             1         100        0.19 
+## 2             2          99        0.202
+## 3             3         101        0.228</code></pre>
+</div>
+<div id="general-impressions-from-summary" class="section level2">
+<h2>General impressions from summary</h2>
 </div>
 </div>
 

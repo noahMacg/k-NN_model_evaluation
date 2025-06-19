@@ -8,6 +8,7 @@ Noah MacGillivray | BIT-446 Assignment(T5) | Summer 2025
 ```{r}
 library(readxl)
 library(skimr)
+library(dplyr)
 ```
 
 ## Import the first 300 rows and print dataset summary
@@ -22,6 +23,17 @@ tail(failure_rate)
 
 # Print skimr dataset summary
 skim(failure_rate)
+
+# 
+model_summary <- failure_rate %>%
+  group_by(model_version) %>%
+  summarise(
+    total_units = n(),
+    failure_rate = mean(failure),
+    .groups = 'drop'
+  )
+
+print(model_summary)
 ```
 
 ## General impressions from summary 
