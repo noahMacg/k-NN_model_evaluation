@@ -1,34 +1,17 @@
-# =====================================================
- Model Evaluation of a k-NN Classification Model
-Noah MacGillivray | BIT-446 Assignment(T5) | Summer 2025  
+**=====================================================**
+
+# Machine Failure Analysis 
+Noah MacGillivray | BIT-446 Assignment(T5) | Summer 2025 
+
+Model Evaluation of a k-NN Classification Model
+
 **Environment:** Ubuntu, VS Code
-# =====================================================
+
+**=====================================================**
 
 ## Required packages 
 ```{r}
-
-# Required packages for this analysis
-required_packages <- c(
-  "readxl",
-  "skimr",
-  "dplyr",
-  "class",
-  "caTools",
-  "caret",
-  "ggplot2",
-  "lattice"
-)
-
-# Check for missing packages and install them
-missing_packages <-
-  required_packages[!(required_packages %in% installed.packages()[,"Package"])]
-if (length(missing_packages)) {
-  cat("Installing missing packages:",
-      paste(missing_packages, collapse = ", "), "\n")
-  install.packages(missing_packages)
-}
-
-# Load all packages
+# Load packages
 library(readxl)
 library(skimr)
 library(dplyr)
@@ -37,6 +20,7 @@ library(caTools)
 library(caret)
 library(ggplot2)
 library(lattice)
+library(metrica)
 
 cat("All packages loaded successfully!\n")
 ```
@@ -72,38 +56,68 @@ print(model_version_summary)
 ## Data preparation for k-NN training 
 
 ```{r}
-# Normalize only the features of interest
+# Normalize only the features of interest; default is z-score
 failure_rate$hours_run <- as.vector(scale(failure_rate$hours_run))
 
 failure_rate$avg_hours_between_maint <-
   as.vector(scale(failure_rate$avg_hours_between_maint))
 
+# Set seed for reproducible results
 set.seed(44)
+
+# Stratified random split 70/30
 sample <- sample.split(failure_rate$failure, SplitRatio = 0.7)
 
+# Distribute the split data to training and testing
 train_failure <- subset(failure_rate, sample == TRUE)
-
 test_failure <- subset(failure_rate, sample == FALSE)
 
+# Converts data sets to categorical factors for proper handling in k-NN model
 train_failure$failure <- as.factor(train_failure$failure)
-
 test_failure$failure <- as.factor(test_failure$failure)
 
 ```
 
 ## K-NN evaluation 
 ```{r}
-# Train with hours_run and avg_hours_between_maint
-knn_model <- knn(
+# Apply k-NN classification with hours_run and avg_hours_between_maint
+failure_knn <- knn(
   train_failure[c("hours_run", "avg_hours_between_maint")],
   test_failure[c("hours_run", "avg_hours_between_maint")],
   cl = train_failure$failure,
   k = 5
 )
+```
 
-test_obs_pred <- data.frame(test_failure, knn_model)
+## Model Evaluation Metrics 
+```{r}
+# Bind the k-NN model with our data frame
+test_obs_pred <- data.frame(test_failure, failure_knn)
 
-confusionMatrix(test_obs_pred$knn_model,
+# Display confusion matrix
+confusionMatrix(test_obs_pred$failure_knn,
                 test_obs_pred$failure,
                 mode = "prec_recall")
+
+# Comprehensive metrics summary using metrica package
+obs <- as.numeric(paste(test_failure$failure))
+pred <- as.numeric(paste(test_obs_pred$failure_knn))
+data <- data.frame(cbind(obs, pred))
+
+# Create comprehensive metrics summary using metrica package
+metrics_summary(
+  data = data,
+  obs = obs,
+  pred = pred,
+  pos_level = 1,
+  type = "classification"
+)
+
+# Provide model results using caret package
+confusionMatrix(
+  data = factor(pred),
+  reference = factor(obs),
+  mode = "prec_recall"
+)
 ```
+## Conclusion and analysis 

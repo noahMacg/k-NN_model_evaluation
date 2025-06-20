@@ -358,34 +358,16 @@ pre code {
 </div>
 
 
-<div id="section" class="section level1">
-<h1>=====================================================</h1>
-<p>Model Evaluation of a k-NN Classification Model Noah MacGillivray | BIT-446 Assignment(T5) | Summer 2025<br />
-<strong>Environment:</strong> Ubuntu, VS Code # =====================================================</p>
+<p><strong>=====================================================</strong></p>
+<div id="machine-failure-analysis" class="section level1">
+<h1>Machine Failure Analysis</h1>
+<p>Noah MacGillivray | BIT-446 Assignment(T5) | Summer 2025</p>
+<p>Model Evaluation of a k-NN Classification Model</p>
+<p><strong>Environment:</strong> Ubuntu, VS Code</p>
+<p><strong>=====================================================</strong></p>
 <div id="required-packages" class="section level2">
 <h2>Required packages</h2>
-<pre class="r"><code># Required packages for this analysis
-required_packages &lt;- c(
-  &quot;readxl&quot;,
-  &quot;skimr&quot;,
-  &quot;dplyr&quot;,
-  &quot;class&quot;,
-  &quot;caTools&quot;,
-  &quot;caret&quot;,
-  &quot;ggplot2&quot;,
-  &quot;lattice&quot;
-)
-
-# Check for missing packages and install them
-missing_packages &lt;-
-  required_packages[!(required_packages %in% installed.packages()[,&quot;Package&quot;])]
-if (length(missing_packages)) {
-  cat(&quot;Installing missing packages:&quot;,
-      paste(missing_packages, collapse = &quot;, &quot;), &quot;\n&quot;)
-  install.packages(missing_packages)
-}
-
-# Load all packages
+<pre class="r"><code># Load packages
 library(readxl)
 library(skimr)
 library(dplyr)</code></pre>
@@ -404,8 +386,16 @@ library(caret)</code></pre>
 <pre><code>## Loading required package: lattice</code></pre>
 <pre class="r"><code>library(ggplot2)
 library(lattice)
-
-cat(&quot;All packages loaded successfully!\n&quot;)</code></pre>
+library(metrica)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;metrica&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:caret&#39;:
+## 
+##     MAE, precision, R2, recall, RMSE, sensitivity, specificity</code></pre>
+<pre><code>## The following object is masked from &#39;package:lattice&#39;:
+## 
+##     barley</code></pre>
+<pre class="r"><code>cat(&quot;All packages loaded successfully!\n&quot;)</code></pre>
 <pre><code>## All packages loaded successfully!</code></pre>
 </div>
 <div id="import-the-first-300-rows-and-print-dataset-summary" class="section level2">
@@ -580,33 +570,115 @@ print(model_version_summary)</code></pre>
 </div>
 <div id="data-preparation-for-k-nn-training" class="section level2">
 <h2>Data preparation for k-NN training</h2>
-<pre class="r"><code># Normalize only the features of interest
+<pre class="r"><code># Normalize only the features of interest; default is z-score
 failure_rate$hours_run &lt;- as.vector(scale(failure_rate$hours_run))
+
 failure_rate$avg_hours_between_maint &lt;-
   as.vector(scale(failure_rate$avg_hours_between_maint))
 
+# Set seed for reproducible results
 set.seed(44)
+
+# Stratified random split 70/30
 sample &lt;- sample.split(failure_rate$failure, SplitRatio = 0.7)
+
+# Distribute the split data to training and testing 
 train_failure &lt;- subset(failure_rate, sample == TRUE)
 test_failure &lt;- subset(failure_rate, sample == FALSE)
+
+# Converts data sets to categorical factors for proper handling in k-NN model
 train_failure$failure &lt;- as.factor(train_failure$failure)
 test_failure$failure &lt;- as.factor(test_failure$failure)</code></pre>
 </div>
 <div id="k-nn-evaluation" class="section level2">
 <h2>K-NN evaluation</h2>
-<pre class="r"><code># Train with hours_run and avg_hours_between_maint
-knn_model &lt;- knn(
+<pre class="r"><code># Apply k-NN classification with hours_run and avg_hours_between_maint
+failure_knn &lt;- knn(
   train_failure[c(&quot;hours_run&quot;, &quot;avg_hours_between_maint&quot;)],
   test_failure[c(&quot;hours_run&quot;, &quot;avg_hours_between_maint&quot;)],
   cl = train_failure$failure,
   k = 5
 )
+# Bind the k-NN model with our data frame
+test_obs_pred &lt;- data.frame(test_failure, failure_knn)
 
-test_ObsPred &lt;- data.frame(test_failure, knn_model)
-
-confusionMatrix(test_ObsPred$knn_model, 
-                test_ObsPred$failure, 
+# Display confusion matrix
+confusionMatrix(test_obs_pred$failure_knn,
+                test_obs_pred$failure,
                 mode = &quot;prec_recall&quot;)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction  0  1
+##          0 69  4
+##          1  2 15
+##                                           
+##                Accuracy : 0.9333          
+##                  95% CI : (0.8605, 0.9751)
+##     No Information Rate : 0.7889          
+##     P-Value [Acc &gt; NIR] : 0.0001641       
+##                                           
+##                   Kappa : 0.7918          
+##                                           
+##  Mcnemar&#39;s Test P-Value : 0.6830914       
+##                                           
+##               Precision : 0.9452          
+##                  Recall : 0.9718          
+##                      F1 : 0.9583          
+##              Prevalence : 0.7889          
+##          Detection Rate : 0.7667          
+##    Detection Prevalence : 0.8111          
+##       Balanced Accuracy : 0.8807          
+##                                           
+##        &#39;Positive&#39; Class : 0               
+## </code></pre>
+<pre class="r"><code># Comprehensive metrics summary using metrica package
+obs &lt;- as.numeric(paste(test_failure$failure))
+pred &lt;- as.numeric(paste(test_obs_pred$failure_knn))
+data &lt;- data.frame(cbind(obs, pred))
+
+# Create comprehensive metrics summary using metrica package
+metrics_summary(
+  data = data,
+  obs = obs,
+  pred = pred,
+  pos_level = 1,
+  type = &quot;classification&quot;
+)</code></pre>
+<pre><code>##         Metric        Score
+## 1     accuracy   0.93333333
+## 2   error_rate   0.06666667
+## 3    precision   0.94520548
+## 4       recall   0.97183099
+## 5  specificity   0.78947368
+## 6       balacc   0.88065234
+## 7       fscore   0.95833333
+## 8          agf   0.91273866
+## 9        gmean   0.87591951
+## 10        khat   0.79182729
+## 11         mcc   0.79374057
+## 12         fmi   0.95842578
+## 13         bmi   0.76130467
+## 14         csi   0.78409091
+## 15      deltap   0.82755842
+## 16       posLr   4.61619718
+## 17       negLr   0.03568075
+## 18         dor 129.37500000
+## 19         npv   0.88235294
+## 20         FPR   0.21052632
+## 21         FNR   0.02816901
+## 22         FDR   0.05479452
+## 23         FOR   0.11764706
+## 24      preval   0.78888889
+## 25    preval_t   0.47404642
+## 26     AUC_roc   0.42261905
+## 27          p4   0.89147287</code></pre>
+<pre class="r"><code># Provide model results using caret package
+confusionMatrix(
+  data = factor(pred),
+  reference = factor(obs),
+  mode = &quot;prec_recall&quot;
+)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
 ##           Reference
