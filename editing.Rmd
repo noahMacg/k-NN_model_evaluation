@@ -10,6 +10,10 @@ required_packages <- c(
   "lattice"
 )
 
+
+
+
+# ALTERNATIVE K-FOLDS CODE W/O CARROT PACKAGE...
 # Check for missing packages and install them
 missing_packages <-
   required_packages[!(required_packages %in% installed.packages()[, "Package"])]
@@ -17,4 +21,49 @@ if (length(missing_packages)) {
   cat("Installing missing packages:",
       paste(missing_packages, collapse = ", "), "\n")
   install.packages(missing_packages)
+}
+
+# Convert to factor 
+failure_rate$failure <- as.factor(failure_rate$failure)
+
+# Set seed and create 10 folds
+set.seed(44)
+folds <- createFolds(failure_rate$failure,
+                     k = 10, list = TRUE, returnTrain = FALSE)
+
+# Test different k values with k-fold
+k_values <- c(3, 5, 7, 9, 11, 13, 15, 17)
+k_results <- list()
+
+cat("K-NN k-folds evaluation of k values:")
+for (k_val in k_values) {
+  accuracy_scores <- numeric(10)
+
+  for (i in 1:10) {
+    test_indices <- folds[[i]]
+    train_fold <- failure_rate[-test_indices, ]
+    test_fold <- failure_rate[test_indices, ]
+
+    # Apply k-NN with current k value
+    knn_pred <- knn(
+      train_fold[c("hours_run", "avg_hours_between_maint")],
+      test_fold[c("hours_run", "avg_hours_between_maint")],
+      cl = train_fold$failure,
+      k = k_val
+    )
+
+    accuracy_scores[i] <- mean(knn_pred == test_fold$failure)
+  }
+
+  # Store results for this k value
+  k_results[[paste0("k", k_val)]] <- list(
+    k = k_val,
+    mean_acc = mean(accuracy_scores),
+    sd_acc = sd(accuracy_scores),
+    min_acc = min(accuracy_scores),
+    max_acc = max(accuracy_scores)
+  )
+
+  cat("k =", k_val, "| Mean:", round(mean(accuracy_scores), 4),
+      "| SD:", round(sd(accuracy_scores), 4), "\n")
 }

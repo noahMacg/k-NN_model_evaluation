@@ -78,7 +78,7 @@ test_failure$failure <- as.factor(test_failure$failure)
 
 ```
 
-## K-NN evaluation 
+## K-NN evaluation (stratified) 
 ```{r}
 # Apply k-NN classification with hours_run and avg_hours_between_maint
 failure_knn <- knn(
@@ -86,6 +86,72 @@ failure_knn <- knn(
   test_failure[c("hours_run", "avg_hours_between_maint")],
   cl = train_failure$failure,
   k = 5
+)
+```
+
+## K-NN evaluation (k-folds)
+
+```{r}
+# Set seed for reproducibility
+set.seed(44)
+
+# Set up 10-fold cross-validation
+ctrl <- trainControl(
+  method = "cv",           # Cross-validation
+  number = 10,             # 10 folds
+  savePredictions = "final" # Save predictions for confusion matrix
+)
+
+# Define k values to test
+k_grid <- data.frame(k = c(3, 5, 7, 9, 11, 13))
+
+failure_rate$failure <- as.factor(failure_rate$failure)
+
+# Train k-NN with k-fold cross-validation
+knn_model <- train(
+  failure ~ hours_run + avg_hours_between_maint,
+  data = failure_rate,
+  method = "knn",
+  trControl = ctrl,
+  tuneGrid = k_grid,
+  metric = "Accuracy"
+)
+
+# View results
+print(knn_model)
+
+# Plot k value performance
+plot(knn_model)
+
+# Get the best k value
+cat("Best k value:", knn_model$bestTune$k, "\n")
+cat("Best ROC:", round(max(knn_model$results$ROC), 4), "\n")
+
+# Detailed results for each k value
+print(knn_model$results)
+
+# Confusion matrix for best model compiles across all folds
+confusionMatrix(knn_model$pred$pred, knn_model$pred$obs)
+
+# Detailed results for each k value
+print(knn_model$results)
+
+# Confusion matrix for best model compiles across all folds
+caret_cm <- confusionMatrix(knn_model$pred$pred,
+                            knn_model$pred$obs, mode = "prec_recall")
+print(caret_cm)
+
+# Comprehensive metrics using metrica package
+obs_caret <- as.numeric(paste(knn_model$pred$obs))
+pred_caret <- as.numeric(paste(knn_model$pred$pred))
+caret_data <- data.frame(cbind(obs = obs_caret, pred = pred_caret))
+
+metrics_summary(
+  data = caret_data,
+  obs = obs_caret,
+  pred = pred_caret,
+  pos_level = 1,
+  type = "classification"
 )
 ```
 
