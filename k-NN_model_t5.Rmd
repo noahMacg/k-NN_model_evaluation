@@ -119,5 +119,16 @@ confusionMatrix(
   reference = factor(obs),
   mode = "prec_recall"
 )
+# Scatter plot 
+ggplot(test_obs_pred, aes(x = hours_run, y = avg_hours_between_maint, 
+                          color = failure == failure_knn)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("FALSE" = "red", "TRUE" = "blue"),
+                     name = "Prediction", labels = c("Wrong", "Correct")) +
+  labs(title = "k-NN Machine Failure Predictions", 
+       x = "Hours Run (normalized)",
+       y = "Avg Hours Between Maintenance(normalized)") +
+  theme_minimal()
 ```
+
 ## Conclusion and analysis 
