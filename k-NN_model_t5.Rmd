@@ -4,11 +4,41 @@ Noah MacGillivray | BIT-446 Assignment(T5) | Summer 2025
 **Environment:** Ubuntu, VS Code
 # =====================================================
 
-## Imports 
+## Required packages 
 ```{r}
+
+# Required packages for this analysis
+required_packages <- c(
+  "readxl",
+  "skimr",
+  "dplyr",
+  "class",
+  "caTools",
+  "caret",
+  "ggplot2",
+  "lattice"
+)
+
+# Check for missing packages and install them
+missing_packages <-
+  required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if (length(missing_packages)) {
+  cat("Installing missing packages:",
+      paste(missing_packages, collapse = ", "), "\n")
+  install.packages(missing_packages)
+}
+
+# Load all packages
 library(readxl)
 library(skimr)
 library(dplyr)
+library(class)
+library(caTools)
+library(caret)
+library(ggplot2)
+library(lattice)
+
+cat("All packages loaded successfully!\n")
 ```
 
 ## Import the first 300 rows and print dataset summary
@@ -24,16 +54,56 @@ tail(failure_rate)
 # Print skimr dataset summary
 skim(failure_rate)
 
-# 
-model_summary <- failure_rate %>%
+# Machine number failure rate summary
+model_version_summary <- failure_rate %>%
   group_by(model_version) %>%
   summarise(
     total_units = n(),
     failure_rate = mean(failure),
-    .groups = 'drop'
+    .groups = "drop"
   )
 
-print(model_summary)
+print(model_version_summary)
 ```
 
 ## General impressions from summary 
+
+
+## Data preparation for k-NN training 
+
+```{r}
+# Normalize only the features of interest
+failure_rate$hours_run <- as.vector(scale(failure_rate$hours_run))
+
+failure_rate$avg_hours_between_maint <-
+  as.vector(scale(failure_rate$avg_hours_between_maint))
+
+set.seed(44)
+sample <- sample.split(failure_rate$failure, SplitRatio = 0.7)
+
+train_failure <- subset(failure_rate, sample == TRUE)
+
+test_failure <- subset(failure_rate, sample == FALSE)
+
+train_failure$failure <- as.factor(train_failure$failure)
+
+test_failure$failure <- as.factor(test_failure$failure)
+
+```
+
+## K-NN evaluation 
+```{r}
+# Train with hours_run and avg_hours_between_maint
+knn_model <- knn(
+  train_failure[c("hours_run", "avg_hours_between_maint")],
+  test_failure[c("hours_run", "avg_hours_between_maint")],
+  cl = train_failure$failure,
+  k = 5
+)
+
+test_obs_pred <- data.frame(test_failure, knn_model)
+
+confusionMatrix(test_obs_pred$knn_model,
+                test_obs_pred$failure,
+                mode = "prec_recall")
+```

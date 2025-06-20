@@ -362,9 +362,31 @@ pre code {
 <h1>=====================================================</h1>
 <p>Model Evaluation of a k-NN Classification Model Noah MacGillivray | BIT-446 Assignment(T5) | Summer 2025<br />
 <strong>Environment:</strong> Ubuntu, VS Code # =====================================================</p>
-<div id="imports" class="section level2">
-<h2>Imports</h2>
-<pre class="r"><code>library(readxl)
+<div id="required-packages" class="section level2">
+<h2>Required packages</h2>
+<pre class="r"><code># Required packages for this analysis
+required_packages &lt;- c(
+  &quot;readxl&quot;,
+  &quot;skimr&quot;,
+  &quot;dplyr&quot;,
+  &quot;class&quot;,
+  &quot;caTools&quot;,
+  &quot;caret&quot;,
+  &quot;ggplot2&quot;,
+  &quot;lattice&quot;
+)
+
+# Check for missing packages and install them
+missing_packages &lt;-
+  required_packages[!(required_packages %in% installed.packages()[,&quot;Package&quot;])]
+if (length(missing_packages)) {
+  cat(&quot;Installing missing packages:&quot;,
+      paste(missing_packages, collapse = &quot;, &quot;), &quot;\n&quot;)
+  install.packages(missing_packages)
+}
+
+# Load all packages
+library(readxl)
 library(skimr)
 library(dplyr)</code></pre>
 <pre><code>## 
@@ -375,6 +397,16 @@ library(dplyr)</code></pre>
 <pre><code>## The following objects are masked from &#39;package:base&#39;:
 ## 
 ##     intersect, setdiff, setequal, union</code></pre>
+<pre class="r"><code>library(class)
+library(caTools)
+library(caret)</code></pre>
+<pre><code>## Loading required package: ggplot2</code></pre>
+<pre><code>## Loading required package: lattice</code></pre>
+<pre class="r"><code>library(ggplot2)
+library(lattice)
+
+cat(&quot;All packages loaded successfully!\n&quot;)</code></pre>
+<pre><code>## All packages loaded successfully!</code></pre>
 </div>
 <div id="import-the-first-300-rows-and-print-dataset-summary" class="section level2">
 <h2>Import the first 300 rows and print dataset summary</h2>
@@ -526,16 +558,16 @@ skim(failure_rate)</code></pre>
 </tr>
 </tbody>
 </table>
-<pre class="r"><code># Add this exploratory analysis before your main KNN model
-model_summary &lt;- failure_rate %&gt;%
+<pre class="r"><code># Machine number failure rate summary
+model_version_summary &lt;- failure_rate %&gt;%
   group_by(model_version) %&gt;%
   summarise(
     total_units = n(),
     failure_rate = mean(failure),
-    .groups = &#39;drop&#39;
+    .groups = &quot;drop&quot;
   )
 
-print(model_summary)</code></pre>
+print(model_version_summary)</code></pre>
 <pre><code>## # A tibble: 3 × 3
 ##   model_version total_units failure_rate
 ##           &lt;dbl&gt;       &lt;int&gt;        &lt;dbl&gt;
@@ -545,6 +577,62 @@ print(model_summary)</code></pre>
 </div>
 <div id="general-impressions-from-summary" class="section level2">
 <h2>General impressions from summary</h2>
+</div>
+<div id="data-preparation-for-k-nn-training" class="section level2">
+<h2>Data preparation for k-NN training</h2>
+<pre class="r"><code># Normalize only the features of interest
+failure_rate$hours_run &lt;- as.vector(scale(failure_rate$hours_run))
+failure_rate$avg_hours_between_maint &lt;-
+  as.vector(scale(failure_rate$avg_hours_between_maint))
+
+set.seed(44)
+sample &lt;- sample.split(failure_rate$failure, SplitRatio = 0.7)
+train_failure &lt;- subset(failure_rate, sample == TRUE)
+test_failure &lt;- subset(failure_rate, sample == FALSE)
+train_failure$failure &lt;- as.factor(train_failure$failure)
+test_failure$failure &lt;- as.factor(test_failure$failure)</code></pre>
+</div>
+<div id="k-nn-evaluation" class="section level2">
+<h2>K-NN evaluation</h2>
+<pre class="r"><code># Train with hours_run and avg_hours_between_maint
+knn_model &lt;- knn(
+  train_failure[c(&quot;hours_run&quot;, &quot;avg_hours_between_maint&quot;)],
+  test_failure[c(&quot;hours_run&quot;, &quot;avg_hours_between_maint&quot;)],
+  cl = train_failure$failure,
+  k = 5
+)
+
+test_ObsPred &lt;- data.frame(test_failure, knn_model)
+
+confusionMatrix(test_ObsPred$knn_model, 
+                test_ObsPred$failure, 
+                mode = &quot;prec_recall&quot;)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction  0  1
+##          0 69  4
+##          1  2 15
+##                                           
+##                Accuracy : 0.9333          
+##                  95% CI : (0.8605, 0.9751)
+##     No Information Rate : 0.7889          
+##     P-Value [Acc &gt; NIR] : 0.0001641       
+##                                           
+##                   Kappa : 0.7918          
+##                                           
+##  Mcnemar&#39;s Test P-Value : 0.6830914       
+##                                           
+##               Precision : 0.9452          
+##                  Recall : 0.9718          
+##                      F1 : 0.9583          
+##              Prevalence : 0.7889          
+##          Detection Rate : 0.7667          
+##    Detection Prevalence : 0.8111          
+##       Balanced Accuracy : 0.8807          
+##                                           
+##        &#39;Positive&#39; Class : 0               
+## </code></pre>
 </div>
 </div>
 
