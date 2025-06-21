@@ -46,7 +46,7 @@ model_version_summary <- failure_rate %>%
     failure_rate = mean(failure),
     .groups = "drop"
   )
-
+# Prints the summary 
 print(model_version_summary)
 ```
 
@@ -98,7 +98,7 @@ failure_knn <- knn(
 # Set seed for reproducibility
 set.seed(44)
 
-# Set up 10-fold cross-validation via caret package
+# Set up 10 fold cross validation via caret package
 ctrl <- trainControl(
   method = "cv",           # Cross-validation
   number = 10,             # 10 folds
@@ -154,7 +154,7 @@ confusionMatrix(
   reference = factor(obs),
   mode = "prec_recall"
 )
-# Scatter plot 
+# Scatter plot
 ggplot(test_obs_pred, aes(x = hours_run, y = avg_hours_between_maint, 
                           color = failure == failure_knn)) +
   geom_point(size = 3) +
@@ -207,7 +207,7 @@ kfold_plot_data <- data.frame(
   correct = knn_kfolds_model$pred$obs == knn_kfolds_model$pred$pred
 )
 
-# Scatter plot (same style as your original)
+# Scatter plot
 ggplot(kfold_plot_data,
        aes(x = hours_run, y = avg_hours_between_maint, color = correct)) +
   geom_point(size = 3, alpha = 0.7) +
