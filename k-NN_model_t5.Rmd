@@ -3,11 +3,19 @@
 # Machine Failure Analysis 
 Noah MacGillivray | BIT-446 Assignment(T5) | Summer 2025 
 
-Model Evaluation of a k-NN Classification Model
+Model Evaluation of a KNN Classification Model
 
 **Environment:** Ubuntu, VS Code
 
 **=====================================================**
+
+## Introduction
+This program imports machine failure data for three different models with (possible)
+associated factors including hours run and average hours in-between maintenance. The 
+data is prepared, splits for training and testing are made using both random 
+stratified and stratified k-folds, and the k nearest neighbor (KNN) algorithm is 
+applied to both. The results are then displayed for evaluation.   
+
 
 ## Required packages 
 ```{r}
@@ -25,7 +33,11 @@ library(metrica)
 cat("All packages loaded successfully!\n")
 ```
 
-## Data Import and Initial Exploration  
+## Data Import and Initial Exploration 
+The machine failure data is read in using read_excel, head/tail/summary are printed to
+ensure proper import and view summary, and machine version prints what percentage of 
+failures are in each group. The first 300 rows of dataset had no missing values for 
+columns needed for KNN evaluation.    
 ```{r}
 failure_rate <- read_excel("BIT-446-RS-T4-T5-FailureRate.xlsx", n_max = 300)
 
@@ -46,11 +58,24 @@ model_version_summary <- failure_rate %>%
     failure_rate = mean(failure),
     .groups = "drop"
   )
-# Prints the summary 
+cat("Machine Model Failure Distribution and Failure Rate")
+
+# Prints the summary
 print(model_version_summary)
 ```
 
+## General impressions from summary 
+- 300 column vectors with 5 dimension. 
+- hours_run: uniform distribution with moderate standard deviation 
+- avg_hours_between_maint: left-skewed with moderate standard deviation 
+- failure: right skewed with high standard deviation 
+- Model data is equally distributed; model 3 has slightly higher failure rate
+
 ## Data Preparation
+Do to the large range of values, hours_run and avg_hours_between_maint were normalized
+(z-score). The failure column is also converted to a factor to be used in the 
+KNN models. 
+
 ```{r}
 # Normalize only the features of interest; default is z-score
 failure_rate$hours_run <- as.vector(scale(failure_rate$hours_run))
@@ -58,17 +83,14 @@ failure_rate$hours_run <- as.vector(scale(failure_rate$hours_run))
 failure_rate$avg_hours_between_maint <-
   as.vector(scale(failure_rate$avg_hours_between_maint))
 
-
+# Failure column converted to a factor 
 failure_rate$failure <- as.factor(failure_rate$failure)
 ```
 
-
-## General impressions from summary 
-
-
-
-## Data splitting for k-NN training (stratified)
-
+## Data splitting for ***Stratified*** KNN training 
+Seed was set for reproducibility; data was split using random stratified approach 
+(random selection, but each train/test division has equal number of failed machines) -
+70% for training and 30% for testing.  
 ```{r}
 # Set seed for reproducible results
 set.seed(44)
@@ -81,18 +103,27 @@ train_failure <- subset(failure_rate, sample == TRUE)
 test_failure <- subset(failure_rate, sample == FALSE)
 ```
 
-## Apply k-NN (stratified) 
+## Apply KNN (***Stratified***)
+This bock applies the KNN algorithm based on hours_run and avg_hours_between_maint
+features and failure target. A k-value of 5 was selected based on our last analysis
+using KNIME. The function returns an object of failure criteria to be compared to 
+the known failures of the associated column vector. 
 ```{r}
-# Apply k-NN classification with hours_run and avg_hours_between_maint
+# Apply KNN classification with hours_run and avg_hours_between_maint
 failure_knn <- knn(
   train_failure[c("hours_run", "avg_hours_between_maint")],
   test_failure[c("hours_run", "avg_hours_between_maint")],
-  cl = train_failure$failure,
+  cl = train_failure$failure, # Class labels
   k = 5
 )
 ```
 
-## Data splitting for k-NN (k-folds)
+## Data splitting for ***k-folds*** KNN training 
+The data splitting for k-folds is a bit different than using a stratified approach. 
+It still uses a seed for reproducibility and a stratified approach when placing data 
+into each fold, but builds 10 separate folds (tests) to apply the KNN model. This 
+block also creates a column vector of specified k-values to be tested along with the 
+dataset below. 
 
 ```{r}
 # Set seed for reproducibility
@@ -100,7 +131,7 @@ set.seed(44)
 
 # Set up 10 fold cross validation via caret package
 ctrl <- trainControl(
-  method = "cv",           # Cross-validation
+  method = "cv",           # Cross validation
   number = 10,             # 10 folds
   savePredictions = "final" # Save predictions for confusion matrix
 )
@@ -110,23 +141,38 @@ k_grid <- data.frame(k = c(3, 5, 7, 9, 11, 13, 15, 17))
 ```
 
 
-## Apply k-NN (k-folds)
+## Apply KNN (***k-folds***)
+This block uses the caret library and is where the k_NN model is applied to the 10 
+separate folds and each of the k-values in the vector above. It averages the outcome 
+accuracy and other metrics of the 10 different folds. This allows you to test and verify
+more of your data, prevent overfitting and hopefully provide better results on future
+data. 
+
 ```{r}
-# Apply k-NN with k-fold cross-validation
+# Apply KNN with k-fold cross-validation
 knn_kfolds_model <- train(
+  ## Predict failure based on hours_run + avg_hours_between_maint
   failure ~ hours_run + avg_hours_between_maint,
+  # Data set we are using (from above)
   data = failure_rate,
+  # KNN algorithm applied
   method = "knn",
+  # Number of folds and cross validation we set above
   trControl = ctrl,
+  # Test for each of the specified k-values above
   tuneGrid = k_grid,
+  # Optimize for accuracy predicting failure
   metric = "Accuracy"
 )
 ```
 
 
-## Model Evaluation Metrics (stratified)
+## Model Evaluation Metrics (***strati ***)
+The following block binds the applied KNN model above with our test_failure column
+to provide a comparison on how well the KNN model performed. Displays include: 
+confusion matrix, comprehensive metrics summary, and a scatter plot of the predictions.  
 ```{r}
-# Bind the k-NN model with our data frame
+# Bind the KNN model with our data frame
 test_obs_pred <- data.frame(test_failure, failure_knn)
 
 # Display confusion matrix
@@ -134,7 +180,8 @@ confusionMatrix(test_obs_pred$failure_knn,
                 test_obs_pred$failure,
                 mode = "prec_recall")
 
-# Comprehensive metrics summary using metrica package
+# Converts factors back to numerical values and
+# places them in a df to use w/ metric summary
 obs <- as.numeric(paste(test_failure$failure))
 pred <- as.numeric(paste(test_obs_pred$failure_knn))
 data <- data.frame(cbind(obs, pred))
@@ -148,32 +195,30 @@ metrics_summary(
   type = "classification"
 )
 
-# Provide model results using caret package
-confusionMatrix(
-  data = factor(pred),
-  reference = factor(obs),
-  mode = "prec_recall"
-)
 # Scatter plot
 ggplot(test_obs_pred, aes(x = hours_run, y = avg_hours_between_maint, 
                           color = failure == failure_knn)) +
   geom_point(size = 3) +
   scale_color_manual(values = c("FALSE" = "red", "TRUE" = "blue"),
                      name = "Prediction", labels = c("Wrong", "Correct")) +
-  labs(title = "k-NN Machine Failure Predictions", 
+  labs(title = "KNN Machine Failure Predictions (Stratified Approach)",
        x = "Hours Run (normalized)",
        y = "Avg Hours Between Maintenance(normalized)") +
   theme_minimal()
 ```
 
-## Model Evaluation Metrics (k-folds)
+## Model Evaluation Metrics (***k-folds***)
+The following block prints and plots the k-value metrics from KNN model to provide 
+a comparison on how well different k-values performed. It also displays the best k-value
+using the caret library. Other displays include: confusion matrix, comprehensive 
+metrics summary, and a scatter plot of the predictions.
 
 ```{r}
 # View results
 print(knn_kfolds_model)
 
 # Plot k value performance
-plot(knn_kfolds_model)
+plot(knn_kfolds_model, main = "K-ValuePerformance in KNN Model")
 
 # Get the best k value
 cat("Best k value:", knn_kfolds_model$bestTune$k, "\n")
@@ -213,7 +258,8 @@ ggplot(kfold_plot_data,
   geom_point(size = 3, alpha = 0.7) +
   scale_color_manual(values = c("FALSE" = "red", "TRUE" = "blue"),
                      name = "Prediction", labels = c("Wrong", "Correct")) +
-  labs(title = "k-NN Machine Failure Predictions (K-Fold Cross-Validation)",
+  labs(title = "KNN Machine Failure Predictions 
+      (K-Fold Cross-Validation Approach)",
        subtitle = paste("Best k =", knn_kfolds_model$bestTune$k, "| Accuracy =",
                         round(max(knn_kfolds_model$results$Accuracy), 3)),
        x = "Hours Run (normalized)",
@@ -222,8 +268,5 @@ ggplot(kfold_plot_data,
   theme(plot.title = element_text(hjust = 0.5),
         plot.subtitle = element_text(hjust = 0.5))
 ```
-
-
-
 
 ## Conclusion and analysis 
