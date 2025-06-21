@@ -25,7 +25,7 @@ library(metrica)
 cat("All packages loaded successfully!\n")
 ```
 
-## Import the first 300 rows and print dataset summary
+## Data Import and Initial Exploration  
 ```{r}
 failure_rate <- read_excel("BIT-446-RS-T4-T5-FailureRate.xlsx", n_max = 300)
 
@@ -50,11 +50,7 @@ model_version_summary <- failure_rate %>%
 print(model_version_summary)
 ```
 
-## General impressions from summary 
-
-
-## Data preparation for k-NN training 
-
+## Data Preparation
 ```{r}
 # Normalize only the features of interest; default is z-score
 failure_rate$hours_run <- as.vector(scale(failure_rate$hours_run))
@@ -62,6 +58,18 @@ failure_rate$hours_run <- as.vector(scale(failure_rate$hours_run))
 failure_rate$avg_hours_between_maint <-
   as.vector(scale(failure_rate$avg_hours_between_maint))
 
+
+failure_rate$failure <- as.factor(failure_rate$failure)
+```
+
+
+## General impressions from summary 
+
+
+
+## Data splitting for k-NN training (stratified)
+
+```{r}
 # Set seed for reproducible results
 set.seed(44)
 
@@ -71,14 +79,9 @@ sample <- sample.split(failure_rate$failure, SplitRatio = 0.7)
 # Distribute the split data to training and testing
 train_failure <- subset(failure_rate, sample == TRUE)
 test_failure <- subset(failure_rate, sample == FALSE)
-
-# Converts data sets to categorical factors for proper handling in k-NN model
-train_failure$failure <- as.factor(train_failure$failure)
-test_failure$failure <- as.factor(test_failure$failure)
-
 ```
 
-## K-NN evaluation (stratified) 
+## Apply k-NN (stratified) 
 ```{r}
 # Apply k-NN classification with hours_run and avg_hours_between_maint
 failure_knn <- knn(
@@ -89,13 +92,13 @@ failure_knn <- knn(
 )
 ```
 
-## K-NN evaluation (k-folds)
+## Data splitting for k-NN (k-folds)
 
 ```{r}
 # Set seed for reproducibility
 set.seed(44)
 
-# Set up 10-fold cross-validation
+# Set up 10-fold cross-validation via caret package
 ctrl <- trainControl(
   method = "cv",           # Cross-validation
   number = 10,             # 10 folds
@@ -103,12 +106,14 @@ ctrl <- trainControl(
 )
 
 # Define k values to test
-k_grid <- data.frame(k = c(3, 5, 7, 9, 11, 13))
+k_grid <- data.frame(k = c(3, 5, 7, 9, 11, 13, 15, 17))
+```
 
-failure_rate$failure <- as.factor(failure_rate$failure)
 
-# Train k-NN with k-fold cross-validation
-knn_model <- train(
+## Apply k-NN (k-folds)
+```{r}
+# Apply k-NN with k-fold cross-validation
+knn_kfolds_model <- train(
   failure ~ hours_run + avg_hours_between_maint,
   data = failure_rate,
   method = "knn",
@@ -116,46 +121,10 @@ knn_model <- train(
   tuneGrid = k_grid,
   metric = "Accuracy"
 )
-
-# View results
-print(knn_model)
-
-# Plot k value performance
-plot(knn_model)
-
-# Get the best k value
-cat("Best k value:", knn_model$bestTune$k, "\n")
-cat("Best ROC:", round(max(knn_model$results$ROC), 4), "\n")
-
-# Detailed results for each k value
-print(knn_model$results)
-
-# Confusion matrix for best model compiles across all folds
-confusionMatrix(knn_model$pred$pred, knn_model$pred$obs)
-
-# Detailed results for each k value
-print(knn_model$results)
-
-# Confusion matrix for best model compiles across all folds
-caret_cm <- confusionMatrix(knn_model$pred$pred,
-                            knn_model$pred$obs, mode = "prec_recall")
-print(caret_cm)
-
-# Comprehensive metrics using metrica package
-obs_caret <- as.numeric(paste(knn_model$pred$obs))
-pred_caret <- as.numeric(paste(knn_model$pred$pred))
-caret_data <- data.frame(cbind(obs = obs_caret, pred = pred_caret))
-
-metrics_summary(
-  data = caret_data,
-  obs = obs_caret,
-  pred = pred_caret,
-  pos_level = 1,
-  type = "classification"
-)
 ```
 
-## Model Evaluation Metrics 
+
+## Model Evaluation Metrics (stratified)
 ```{r}
 # Bind the k-NN model with our data frame
 test_obs_pred <- data.frame(test_failure, failure_knn)
@@ -196,5 +165,65 @@ ggplot(test_obs_pred, aes(x = hours_run, y = avg_hours_between_maint,
        y = "Avg Hours Between Maintenance(normalized)") +
   theme_minimal()
 ```
+
+## Model Evaluation Metrics (k-folds)
+
+```{r}
+# View results
+print(knn_kfolds_model)
+
+# Plot k value performance
+plot(knn_kfolds_model)
+
+# Get the best k value
+cat("Best k value:", knn_kfolds_model$bestTune$k, "\n")
+
+# Confusion matrix for best model compiles across all folds
+caret_cm <- confusionMatrix(knn_kfolds_model$pred$pred,
+                            knn_kfolds_model$pred$obs, mode = "prec_recall")
+print(caret_cm)
+
+# Comprehensive metrics using metrica package
+obs_caret <- as.numeric(paste(knn_kfolds_model$pred$obs))
+pred_caret <- as.numeric(paste(knn_kfolds_model$pred$pred))
+caret_data <- data.frame(cbind(obs = obs_caret, pred = pred_caret))
+
+metrics_summary(
+  data = caret_data,
+  obs = obs_caret,
+  pred = pred_caret,
+  pos_level = 1,
+  type = "classification"
+)
+
+pred_indices <- knn_kfolds_model$pred$rowIndex
+
+# Create data frame for plotting
+kfold_plot_data <- data.frame(
+  hours_run = failure_rate$hours_run[pred_indices],
+  avg_hours_between_maint = failure_rate$avg_hours_between_maint[pred_indices],
+  actual = knn_kfolds_model$pred$obs,
+  predicted = knn_kfolds_model$pred$pred,
+  correct = knn_kfolds_model$pred$obs == knn_kfolds_model$pred$pred
+)
+
+# Scatter plot (same style as your original)
+ggplot(kfold_plot_data,
+       aes(x = hours_run, y = avg_hours_between_maint, color = correct)) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_color_manual(values = c("FALSE" = "red", "TRUE" = "blue"),
+                     name = "Prediction", labels = c("Wrong", "Correct")) +
+  labs(title = "k-NN Machine Failure Predictions (K-Fold Cross-Validation)",
+       subtitle = paste("Best k =", knn_kfolds_model$bestTune$k, "| Accuracy =",
+                        round(max(knn_kfolds_model$results$Accuracy), 3)),
+       x = "Hours Run (normalized)",
+       y = "Avg Hours Between Maintenance (normalized)") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+
+
 
 ## Conclusion and analysis 
