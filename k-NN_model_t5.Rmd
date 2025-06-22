@@ -167,7 +167,7 @@ knn_kfolds_model <- train(
 ```
 
 
-## Model Evaluation Metrics (***strati ***)
+## Model Evaluation Metrics (***stratified***)
 The following block binds the applied KNN model above with our test_failure column
 to provide a comparison on how well the KNN model performed. Displays include: 
 confusion matrix, comprehensive metrics summary, and a scatter plot of the predictions.  
@@ -270,3 +270,46 @@ ggplot(kfold_plot_data,
 ```
 
 ## Conclusion and analysis 
+***After analysis of the KNN model of machine failure, yes it should be used to predict
+machine failure, and specifically, we should use the k-folds method with a k-value of 
+13.*** 
+
+As we can see, a k-value of 13 gave us the best accuracy and Kappa scores. Although 
+k=11 appeared to have the same values, it appears (after looking into it) either 
+the caret library either chose 13 because of rounding that we did not see in the metrics,  
+or other metrics it compared. The k-folds method not only produces a different/better
+k-value, but it also outperformed the stratified approach on ever other metric we 
+investigated.
+
+The metrics for the k-fold approach to KNN showed promising results. The model showed
+a 97% accuracy rate and a Kappa score of 91% (better than random guessing). There was
+high precision showing that 97% of failures recognized were correct; high recall showing
+99% of the total failures were recognized; and a harmonic mean (F1) of those two metrics
+was 98%. 
+
+The error rate metrics were also promising for a business model detecting failures 
+related to costs of failed machines, false alarms, and incorrect detection. The following
+is noted:
+
+- FPR(false positive rate): Of all the machines that don't fail, 11% are marked as failed. 
+- FNR(false negative rate): We miss 0.8% of the failed machines. 
+- FDR(false discovery rate): 2% of flagged as failed machines are false alarms. 
+- FOR(False Omission rate): 3% of machines we label as "OK" are actually faulty. 
+
+Of these metrics, the false omission rate may be the most important depending on what 
+the machine is used for. If the machine is safety sensitive and may cause great harm 
+to health, another safety measure may need to be set in place to catch as many of the 
+3% as possible. 
+
+**Further discussion**
+
+I wanted to run more tests (did not have time) isolating the hours run and maintenance 
+intervals to see if one of those factors significantly showed a stronger corelation of 
+machine failure. There is an obvious correlation of hours run and typical maintenance, 
+but it would be interesting to see if one of those has more weight, or if there is a 
+threshold of hours run to take that machine out of service. 
+
+
+
+
+
